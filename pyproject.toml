@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-adapter"                 # rename for your database, e.g. "sethucms-adapter-mysql"
+version = "0.0.0"
+description = "SethuCMS adapter template (Python)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["grpcio>=1.84", "protobuf>=7.35.1"]   # >= the versions the generated code was built with
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "grpcio-tools>=1.84"]
+
+[project.scripts]
+my-adapter = "my_adapter.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

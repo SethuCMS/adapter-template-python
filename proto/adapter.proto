@@ -1,0 +1,114 @@
+// SethuCMS adapter protocol.
+// An adapter implements this service in any language. The gateway calls it.
+syntax = "proto3";
+
+package sethucms.adapter.v1;
+
+import "google/protobuf/struct.proto";
+
+service Adapter {
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Introspect(IntrospectRequest) returns (IntrospectResponse);
+  rpc Capabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
+  rpc Find(FindRequest) returns (FindResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Create(WriteRequest) returns (WriteResponse);
+  rpc Update(WriteRequest) returns (WriteResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Batch(BatchRequest) returns (BatchResponse);
+  rpc Subscribe(FindRequest) returns (stream ChangeEvent);   // optional
+  rpc Close(CloseRequest) returns (CloseResponse);
+}
+
+// Credentials are resolved by the worker and passed in memory only; never logged.
+message ConnectRequest {
+  string connection_id = 1;
+  string adapter_type = 2;
+  google.protobuf.Struct config = 3;
+  google.protobuf.Struct credentials = 4;
+  bool read_only = 5;
+}
+message ConnectResponse { bool ok = 1; Error error = 2; }
+
+message IntrospectRequest { string connection_id = 1; }
+message IntrospectResponse {
+  repeated CollectionInfo collections = 1;
+  Error error = 2;
+}
+message CollectionInfo {
+  string native_name = 1;
+  repeated FieldInfo fields = 2;
+  repeated RelationInfo relations = 3;
+}
+message FieldInfo {
+  string native_name = 1;
+  string native_type = 2;
+  string canonical_type = 3;
+  bool required = 4;
+  bool is_primary_key = 5;
+  bool lossy = 6;
+}
+message RelationInfo {
+  string name = 1;
+  string target = 2;
+  string kind = 3;
+  google.protobuf.Struct mapping = 4;
+}
+
+message CapabilitiesRequest { string connection_id = 1; }
+message CapabilitiesResponse {
+  bool joins = 1;
+  string transactions = 2;      // none | single-document | multi-document
+  bool filter_or = 3;
+  string filter_inequality = 4; // full | single-field | none
+  bool full_text = 5;
+  string sort = 6;              // any-field | indexed-only | key-only
+  bool offset_pagination = 7;   // cursor pagination is mandatory
+  bool aggregations = 8;
+  bool realtime = 9;
+  string schema = 10;           // enforced | inferred
+  bool writes = 11;
+}
+
+message FindRequest {
+  string connection_id = 1;
+  google.protobuf.Struct query = 2;   // portable query AST (see query-ast.schema.json)
+}
+message FindResponse {
+  repeated google.protobuf.Struct records = 1;
+  string next_cursor = 2;
+  repeated string capability_notes = 3;
+  Error error = 4;
+}
+
+message GetRequest { string connection_id = 1; string collection = 2; string id = 3; }
+message GetResponse { google.protobuf.Struct record = 1; Error error = 2; }
+
+message WriteRequest {
+  string connection_id = 1;
+  string collection = 2;
+  string id = 3;                       // empty on create
+  google.protobuf.Struct values = 4;
+}
+message WriteResponse { google.protobuf.Struct record = 1; Error error = 2; }
+
+message DeleteRequest { string connection_id = 1; string collection = 2; string id = 3; }
+message DeleteResponse { bool ok = 1; Error error = 2; }
+
+message BatchRequest { string connection_id = 1; repeated WriteRequest writes = 2; bool atomic = 3; }
+message BatchResponse { repeated WriteResponse results = 1; Error error = 2; }
+
+message ChangeEvent {
+  string type = 1;                     // insert | update | delete
+  google.protobuf.Struct record = 2;
+}
+
+message CloseRequest { string connection_id = 1; }
+message CloseResponse { bool ok = 1; }
+
+message Error {
+  string code = 1;  // CONNECTION_FAILED, AUTH_FAILED, NOT_FOUND, CONFLICT, VALIDATION_FAILED,
+                    // CAPABILITY_UNSUPPORTED, RATE_LIMITED, TIMEOUT, READ_ONLY, INTERNAL
+  string message = 2;
+  google.protobuf.Struct details = 3;
+}
